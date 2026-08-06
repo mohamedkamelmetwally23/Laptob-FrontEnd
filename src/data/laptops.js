@@ -18,4 +18,8 @@ export const bands = [
 ];
 
 export const emptyForm = { brand: '', model: '', processor: '', ram: '', storage: '', price: '', quantity: '' };
-export const money = n => new Intl.NumberFormat('ar-EG').format(Number(n) || 0) + ' ج.م';
+export const money = (n, language = 'ar') => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-EG', {
+  style: 'currency',
+  currency: 'EGP',
+  maximumFractionDigits: 0,
+}).format(Number(n) || 0);

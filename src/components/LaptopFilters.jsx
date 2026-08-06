@@ -1,7 +1,9 @@
 import { Check, ChevronDown, Filter, RotateCcw, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useUi } from '../UiContext';
 
 function DropdownFilter({ label, value, options, onChange }) {
+  const { isArabic } = useUi();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const rootRef = useRef(null);
@@ -25,12 +27,12 @@ function DropdownFilter({ label, value, options, onChange }) {
   return <div className="filter-field dropdown-filter" ref={rootRef}>
     <span>{label}</span>
     <button type="button" className={open ? 'dropdown-trigger open' : 'dropdown-trigger'} onClick={() => setOpen(current => !current)}>
-      <b>{value || 'الكل'}</b><ChevronDown size={16}/>
+      <b>{value || (isArabic ? 'الكل' : 'All')}</b><ChevronDown size={16}/>
     </button>
     {open && <div className="dropdown-menu">
-      {options.length > 7 && <label className="dropdown-search"><Search size={15}/><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder={`ابحث في ${label}...`}/></label>}
+      {options.length > 7 && <label className="dropdown-search"><Search size={15}/><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder={isArabic ? `ابحث في ${label}...` : `Search ${label}...`}/></label>}
       <div className="dropdown-options">
-        <button type="button" className={!value ? 'selected' : ''} onClick={() => choose('')}><span>الكل</span>{!value && <Check size={15}/>}</button>
+        <button type="button" className={!value ? 'selected' : ''} onClick={() => choose('')}><span>{isArabic ? 'الكل' : 'All'}</span>{!value && <Check size={15}/>}</button>
         {visibleOptions.map(option => <button type="button" className={value === option ? 'selected' : ''} onClick={() => choose(option)} key={option}><span>{option}</span>{value === option && <Check size={15}/>}</button>)}
         {!visibleOptions.length && <div className="no-options">لا توجد نتائج</div>}
       </div>
@@ -39,20 +41,33 @@ function DropdownFilter({ label, value, options, onChange }) {
 }
 
 export default function LaptopFilters({ filters, setFilters, options, resultCount, onReset }) {
+  const { isArabic } = useUi();
   const update = (key, value) => setFilters(current => ({ ...current, [key]: value }));
+  const priceLabel = range => isArabic ? range : ({
+    'من 5 إلى 10 آلاف': '5K–10K',
+    'من 10 إلى 15 ألف': '10K–15K',
+    'من 15 إلى 20 ألف': '15K–20K',
+    '25 ألف فأكثر': '25K+',
+  }[range] || range);
 
   return <div className="filter-box">
     <div className="filter-heading">
-      <div><Filter size={18}/><b>تصفية الأجهزة</b><span>{resultCount} نتيجة</span></div>
-      <button className="reset-button" onClick={onReset}><RotateCcw size={15}/> مسح الفلاتر</button>
+      <div><Filter size={18}/><b>{isArabic ? 'تصفية الأجهزة' : 'Filter devices'}</b><span>{resultCount} {isArabic ? 'نتيجة' : 'results'}</span></div>
+      <button className="reset-button" onClick={onReset}><RotateCcw size={15}/>{isArabic ? 'مسح الفلاتر' : 'Reset filters'}</button>
     </div>
-    <label className="global-search"><Search size={19}/><input value={filters.search} onChange={event => update('search', event.target.value)} placeholder="ابحث في كل البيانات: الموديل، المعالج، الماركة..."/></label>
+    <label className="global-search"><Search size={19}/><input value={filters.search} onChange={event => update('search', event.target.value)} placeholder={isArabic ? 'ابحث في كل البيانات: الموديل، المعالج، الماركة...' : 'Search model, processor, brand...'}/></label>
     <div className="filter-grid">
-      <DropdownFilter label="الموديل" value={filters.model} options={options.models} onChange={value => update('model', value)}/>
-      <DropdownFilter label="المعالج" value={filters.processor} options={options.processors} onChange={value => update('processor', value)}/>
-      <DropdownFilter label="الرام" value={filters.ram} options={options.rams} onChange={value => update('ram', value)}/>
-      <DropdownFilter label="التخزين" value={filters.storage} options={options.storages} onChange={value => update('storage', value)}/>
-      <DropdownFilter label="فئة السعر" value={filters.priceRange} options={options.priceRanges} onChange={value => update('priceRange', value)}/>
+      <DropdownFilter label={isArabic ? 'الموديل' : 'Model'} value={filters.model} options={options.models} onChange={value => update('model', value)}/>
+      <DropdownFilter label={isArabic ? 'المعالج' : 'Processor'} value={filters.processor} options={options.processors} onChange={value => update('processor', value)}/>
+      <DropdownFilter label={isArabic ? 'الرام' : 'RAM'} value={filters.ram} options={options.rams} onChange={value => update('ram', value)}/>
+      <DropdownFilter label={isArabic ? 'التخزين' : 'Storage'} value={filters.storage} options={options.storages} onChange={value => update('storage', value)}/>
+      <div className="filter-field price-filter">
+        <span>{isArabic ? 'فئة السعر' : 'Price range'}</span>
+        <div className="price-buttons">
+          <button type="button" className={!filters.priceRange ? 'active' : ''} onClick={() => update('priceRange', '')}>{isArabic ? 'الكل' : 'All'}</button>
+          {options.priceRanges.map(range => <button type="button" className={filters.priceRange === range ? 'active' : ''} onClick={() => update('priceRange', range)} key={range}>{priceLabel(range)}</button>)}
+        </div>
+      </div>
     </div>
   </div>;
 }

@@ -7,6 +7,7 @@ import ProductModal from './components/ProductModal';
 import { emptyForm } from './data/laptops';
 import { parseLaptopSheet } from './utils/excelParser';
 import { laptopApi } from './services/laptopApi';
+import { UiProvider } from './UiContext';
 import './styles.css';
 
 const initialFilters = { search: '', model: '', processor: '', ram: '', storage: '', priceRange: '' };
@@ -45,8 +46,9 @@ function App() {
       .catch(requestError => setError(requestError.message))
       .finally(() => setLoading(false));
   }, []);
+  const availableItems = useMemo(() => items.filter(item => Number(item.quantity) > 0), [items]);
   const filterOptions = useMemo(() => {
-    const availableFor = key => items.filter(item => matchesFilters(item, filters, key));
+    const availableFor = key => availableItems.filter(item => matchesFilters(item, filters, key));
     const priceItems = availableFor('priceRange');
     return {
       models: unique(availableFor('model'), 'model'),
@@ -57,8 +59,8 @@ function App() {
         .filter(([, [min, max]]) => priceItems.some(item => item.price >= min && item.price < max))
         .map(([label]) => label),
     };
-  }, [items, filters]);
-  const filtered = useMemo(() => items.filter(item => matchesFilters(item, filters)), [items, filters]);
+  }, [availableItems, filters]);
+  const filtered = useMemo(() => availableItems.filter(item => matchesFilters(item, filters)), [availableItems, filters]);
 
   const openAdd = () => { setEditing(null); setForm(emptyForm); setModal(true); };
   const openEdit = item => { setEditing(item.id); setForm(item); setModal(true); };
@@ -73,12 +75,12 @@ function App() {
     } catch (requestError) { setError(requestError.message); }
   };
   const remove = async id => {
-    if (!confirm('متأكد إنك عايز تحذف الجهاز ده؟')) return;
     try {
       setError('');
       await laptopApi.remove(id);
       setItems(current => current.filter(item => item.id !== id));
-    } catch (requestError) { setError(requestError.message); }
+      return true;
+    } catch (requestError) { setError(requestError.message); return false; }
   };
   const importFile = async e => {
     const file = e.target.files[0]; if (!file) return;
@@ -88,7 +90,8 @@ function App() {
       try {
         setError('');
         setLoading(true);
-        setItems(await laptopApi.import(mapped));
+        const inserted = await laptopApi.import(mapped);
+        setItems(current => [...inserted, ...current]);
       } catch (requestError) { setError(requestError.message); }
       finally { setLoading(false); }
     }
@@ -104,10 +107,18 @@ function App() {
   return <div className="app-shell">
     <main className="single-page">
       <Header openAdd={openAdd}/>
-      <Products items={filtered} allCount={items.length} loading={loading} error={error} filters={filters} setFilters={setFilters} filterOptions={filterOptions} resetFilters={() => setFilters(initialFilters)} openEdit={openEdit} remove={remove} importFile={importFile} exportData={exportData} inputRef={inputRef}/>
+      <Products items={filtered} allCount={availableItems.length} loading={loading} error={error} filters={filters} setFilters={setFilters} filterOptions={filterOptions} resetFilters={() => setFilters(initialFilters)} openEdit={openEdit} remove={remove} importFile={importFile} exportData={exportData} inputRef={inputRef}/>
     </main>
-    {modal && <ProductModal form={form} setForm={setForm} editing={editing} items={items} close={() => setModal(false)} submit={submit}/>} 
+    {modal && <ProductModal
+      form={form}
+      setForm={setForm}
+      editing={editing}
+      items={items}
+      close={() => setModal(false)}
+      submit={submit}
+      onDelete={async () => { if (await remove(editing)) setModal(false); }}
+    />}
   </div>;
 }
 
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(<UiProvider><App/></UiProvider>);
